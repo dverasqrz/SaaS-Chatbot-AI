@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { UserProvider } from '@/components/user-context';
 
 export const metadata: Metadata = {
   title: 'SaaS Chatbot AI',
@@ -11,7 +12,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <UserProvider>
+          {children}
+        </UserProvider>
+      </body>
     </html>
   );
 }

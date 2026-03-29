@@ -196,6 +196,7 @@ def add_message(
 
     message = Message(
         conversation_id=conversation_id,
+        user_id=current_user.id,
         role=data.role,
         content=data.content.strip(),
         model=data.model,

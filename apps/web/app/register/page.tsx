@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { apiRequest } from '@/lib/api';
@@ -9,10 +9,32 @@ import type { TokenResponse } from '@/lib/types';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Verificar se já existe usuário no sistema
+    const checkSetup = async () => {
+      try {
+        const response = await apiRequest<{has_users: boolean, user_count: number}>('/auth/check-setup', { method: 'GET' });
+        if (response.has_users) {
+          // Se já tem usuários, redirecionar para login
+          router.push('/login');
+          return;
+        }
+      } catch (err) {
+        // Se der erro, permite o registro (fallback)
+        console.error('Erro ao verificar setup:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkSetup();
+  }, [router]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -21,7 +43,7 @@ export default function RegisterPage() {
     try {
       const data = await apiRequest<TokenResponse>('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ full_name: fullName, email, password }),
       });
 
       setAccessToken(data.access_token);
@@ -31,16 +53,31 @@ export default function RegisterPage() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md items-center p-6">
+        <div className="w-full text-center">
+          <p>Verificando configuração do sistema...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex min-h-screen max-w-md items-center p-6">
       <form onSubmit={onSubmit} className="w-full space-y-4 rounded-2xl border bg-white p-6">
-        <h1 className="text-2xl font-semibold">Criar conta</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Criar conta</h1>
+          <p className="text-sm text-zinc-600 mt-1">
+            O primeiro usuário será automaticamente administrador do sistema
+          </p>
+        </div>
 
         <input
           className="w-full rounded-xl border p-3"
-          placeholder="Nome"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          placeholder="Nome completo"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
         />
 
         <input

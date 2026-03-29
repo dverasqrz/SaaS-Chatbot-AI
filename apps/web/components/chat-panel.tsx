@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 
@@ -10,6 +10,7 @@ import { apiRequest } from '@/lib/api';
 import { friendlyChatErrorMessage } from '@/lib/chat-errors';
 import { formatDateTimeRecife, formatShortRecife } from '@/lib/format-time';
 import { getAccessToken, clearAccessToken } from '@/lib/auth';
+import { useUser } from '@/components/user-context';
 import {
   GROQ_DEFAULT_MODEL_ID,
   GROQ_MODEL_OPTIONS,
@@ -71,6 +72,7 @@ function metaTime(m: UIMessage): string | null {
 
 export function ChatPanel() {
   const router = useRouter();
+  const { user, logout } = useUser();
   const [mounted, setMounted] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -233,7 +235,17 @@ export function ChatPanel() {
 
   useEffect(() => {
     function tick() {
-      setRecifeClock(formatDateTimeRecife(new Date().toISOString()));
+      // Usa timestamp UTC atual e converte para Recife
+      const now = new Date();
+      const utcTimestamp = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        now.getUTCHours(),
+        now.getUTCMinutes(),
+        now.getUTCSeconds()
+      );
+      setRecifeClock(formatDateTimeRecife(new Date(utcTimestamp).toISOString()));
     }
     tick();
     const id = window.setInterval(tick, 30_000);
@@ -241,7 +253,7 @@ export function ChatPanel() {
   }, []);
 
   function handleLogout() {
-    clearAccessToken();
+    logout();
     router.push('/login');
     router.refresh();
   }
@@ -661,25 +673,31 @@ export function ChatPanel() {
       <header className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-zinc-200/80 pb-2">
         <div className="min-w-0">
           <h1 className="truncate text-lg font-semibold sm:text-xl">SaaS Chatbot AI</h1>
-          <p className="truncate text-xs text-zinc-500">Workspace: {workspace?.name ?? '-'}</p>
-          {recifeClock ? (
-            <p className="mt-0.5 truncate text-[11px] text-zinc-500" title="Fuso horário de Recife (PE)">
-              Recife (PE): {recifeClock}
-            </p>
-          ) : null}
+          <p className="truncate text-xs text-zinc-500">{workspace?.name ?? '-'}</p>
         </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-        >
-          Sair
-        </button>
+        <div className="flex shrink-0 gap-2">
+          {user?.is_admin && (
+            <button
+              type="button"
+              onClick={() => router.push('/admin')}
+              className="shrink-0 rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-800 hover:bg-purple-100"
+            >
+              Admin
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+          >
+            Sair
+          </button>
+        </div>
       </header>
 
       <div className="mb-2 flex min-h-0 flex-1 flex-col gap-2 md:flex-row md:gap-3">
         {/* Histórico de conversas */}
-        <aside className="flex max-h-32 shrink-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/80 md:max-h-none md:w-56 md:shrink-0">
+        <aside className="flex max-h-40 shrink-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/80 md:max-h-none md:w-56 md:shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-1 border-b border-zinc-200/80 px-2 py-1.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
               Conversas
@@ -689,19 +707,20 @@ export function ChatPanel() {
                 <button
                   type="button"
                   onClick={() => void deleteSelectedConversations()}
-                  className="rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-800 hover:bg-red-100"
+                  className="rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-800 hover:bg-red-100 sm:px-2 sm:text-[11px]"
                   disabled={!token || status === 'streaming'}
                 >
-                  Excluir ({selectedConvIds.size})
+                  <span className="hidden sm:inline">Excluir </span>({selectedConvIds.size})
                 </button>
               ) : null}
               <button
                 type="button"
                 onClick={handleNewConversation}
-                className="rounded-md bg-zinc-900 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-zinc-800"
+                className="rounded-md bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-800 sm:px-2 sm:text-[11px]"
                 disabled={!token || status === 'streaming'}
               >
-                + Nova
+                <span className="hidden sm:inline">+ Nova</span>
+                <span className="sm:hidden">+</span>
               </button>
             </div>
           </div>
@@ -724,7 +743,7 @@ export function ChatPanel() {
                           checked={selectedConvIds.has(c.id)}
                           onChange={(e) => toggleConvSelected(c.id, e)}
                           onClick={(e) => e.stopPropagation()}
-                          className="h-3.5 w-3.5 rounded border-zinc-400"
+                          className="h-3 w-3 rounded border-zinc-400 sm:h-3.5 sm:w-3.5"
                           aria-label={`Selecionar conversa ${c.title || c.id}`}
                         />
                       </label>
@@ -732,14 +751,14 @@ export function ChatPanel() {
                         type="button"
                         onClick={() => selectConversation(c)}
                         disabled={switchingConv || status === 'streaming'}
-                        className={`min-w-0 flex-1 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                        className={`min-w-0 flex-1 rounded-lg px-1.5 py-1 text-left text-xs transition-colors sm:px-2 sm:py-1.5 sm:text-sm ${
                           active
                             ? 'bg-emerald-100 font-medium text-emerald-950'
                             : 'text-zinc-800 hover:bg-white'
                         }`}
                       >
-                        <span className="line-clamp-2">{c.title || 'Conversa'}</span>
-                        <span className="mt-0.5 block text-[10px] font-normal text-zinc-500">
+                        <span className="line-clamp-1 sm:line-clamp-2">{c.title || 'Conversa'}</span>
+                        <span className="mt-0.5 block text-[9px] font-normal text-zinc-500 sm:text-[10px]">
                           {preview}
                         </span>
                       </button>
@@ -747,11 +766,12 @@ export function ChatPanel() {
                         type="button"
                         onClick={(e) => void deleteConversationById(c.id, e)}
                         disabled={switchingConv || status === 'streaming'}
-                        className="shrink-0 rounded-lg px-1.5 py-1 text-xs text-zinc-500 hover:bg-red-50 hover:text-red-700"
+                        className="shrink-0 rounded-lg px-1 py-1 text-xs text-zinc-500 hover:bg-red-50 hover:text-red-700 sm:px-1.5 sm:py-1"
                         title="Excluir conversa"
                         aria-label="Excluir conversa"
                       >
-                        ×
+                        <span className="hidden sm:inline">×</span>
+                        <span className="sm:hidden">×</span>
                       </button>
                     </li>
                   );
@@ -763,9 +783,9 @@ export function ChatPanel() {
 
         {/* Área principal */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm">
             {inlineError ? (
-              <div className="w-full rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+              <div className="w-full rounded-lg border border-red-200 bg-red-50 px-1.5 py-1 text-xs text-red-800 sm:px-2 sm:py-1.5">
                 {inlineError}
               </div>
             ) : null}
@@ -780,7 +800,7 @@ export function ChatPanel() {
                 setProvider(e.target.value as ProviderName);
                 setInlineError(null);
               }}
-              className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm"
+              className="rounded-lg border border-zinc-300 bg-white px-1.5 py-1 text-xs sm:px-2 sm:py-1 sm:text-sm"
               disabled={status === 'streaming'}
             >
               <option value="groq">Groq</option>
@@ -796,7 +816,7 @@ export function ChatPanel() {
               <>
                 <span className="text-zinc-300">·</span>
                 <span
-                  className="max-w-[8rem] truncate text-xs text-zinc-600 sm:max-w-xs sm:text-sm"
+                  className="max-w-[6rem] truncate text-[11px] text-zinc-600 sm:max-w-xs sm:text-xs sm:text-sm"
                   title={groqSummaryLabel}
                 >
                   {groqSummaryLabel}
@@ -804,23 +824,24 @@ export function ChatPanel() {
                 <button
                   type="button"
                   onClick={() => setGroqModalOpen(true)}
-                  className="rounded-lg border border-emerald-600 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-100 sm:text-sm"
+                  className="rounded-lg border border-emerald-600 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900 hover:bg-emerald-100 sm:px-2 sm:py-1 sm:text-xs sm:text-sm"
                   disabled={status === 'streaming'}
                 >
-                  Modelos…
+                  <span className="hidden sm:inline">Modelos…</span>
+                  <span className="sm:hidden">⋯</span>
                 </button>
               </>
             ) : (
-              <span className="text-xs text-amber-800">Use Groq até configurar outros provedores.</span>
+              <span className="text-[11px] text-amber-800 sm:text-xs">Use Groq até configurar outros provedores.</span>
             )}
           </div>
 
           {switchingConv ? (
-            <p className="mb-1 text-xs text-zinc-500">A abrir conversa…</p>
+            <p className="mb-1 text-[11px] text-zinc-500 sm:text-xs">A abrir conversa…</p>
           ) : null}
 
           <main className="flex min-h-0 flex-1 flex-col gap-2">
-            <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm sm:p-3 sm:p-4">
               <div className="space-y-4">
                 {messages.map((message) => {
                   const t = metaTime(message);
@@ -829,13 +850,13 @@ export function ChatPanel() {
                       key={message.id}
                       className={
                         message.role === 'user'
-                          ? 'ml-auto max-w-[min(100%,85%)] rounded-2xl bg-zinc-900 p-3 text-white sm:p-4'
-                          : 'mr-auto max-w-[min(100%,85%)] rounded-2xl bg-zinc-100 p-3 text-zinc-900 sm:p-4'
+                          ? 'ml-auto max-w-[min(100%,90%)] rounded-2xl bg-zinc-900 p-2 text-white sm:p-3 sm:p-4'
+                          : 'mr-auto max-w-[min(100%,90%)] rounded-2xl bg-zinc-100 p-2 text-zinc-900 sm:p-3 sm:p-4'
                       }
                     >
                       <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
                         <span className="text-[10px] uppercase tracking-wide opacity-70">
-                          {message.role}
+                          {message.role === 'user' ? 'usuário' : 'assistente'}
                         </span>
                         {t ? (
                           <time
@@ -850,7 +871,7 @@ export function ChatPanel() {
                           </time>
                         ) : null}
                       </div>
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      <div className="whitespace-pre-wrap text-xs leading-relaxed sm:text-sm">
                         {extractAllTextParts(message)}
                       </div>
                     </div>
@@ -858,7 +879,7 @@ export function ChatPanel() {
                 })}
 
                 {displayError ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-950 sm:p-3 sm:text-sm">
                     {displayError}
                   </div>
                 ) : null}
@@ -870,13 +891,13 @@ export function ChatPanel() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Digite sua mensagem…"
-                className="min-h-[48px] flex-1 resize-y rounded-xl border border-zinc-300 p-2.5 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+                className="min-h-[40px] flex-1 resize-y rounded-xl border border-zinc-300 p-2 text-xs outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 sm:min-h-[48px] sm:p-2.5 sm:text-sm"
                 disabled={status === 'streaming' || provider !== 'groq' || switchingConv}
                 rows={2}
               />
               <button
                 type="submit"
-                className="self-end rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="self-end rounded-xl bg-zinc-900 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 sm:px-4 sm:py-2.5 sm:text-sm"
                 disabled={
                   status === 'streaming' || !input.trim() || provider !== 'groq' || switchingConv
                 }
