@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
+import { encodingForModel } from 'js-tiktoken';
 
 import { apiRequest } from '@/lib/api';
 import { friendlyChatErrorMessage } from '@/lib/chat-errors';
@@ -16,6 +17,23 @@ import {
   GROQ_MODEL_OPTIONS,
 } from '@/lib/groq-models';
 import type { Conversation, Message, Workspace } from '@/lib/types';
+
+// Helper function to estimate tokens using tiktoken
+function estimateTokens(text: string, model: string = 'gpt-4'): number {
+  try {
+    // Map Groq models to OpenAI models for tiktoken encoding
+    let encodingModel = 'gpt-4';
+    if (model.includes('llama') || model.includes('mixtral')) {
+      encodingModel = 'gpt-4'; // Use gpt-4 encoding as approximation for Llama/Mixtral
+    }
+    const encoder = encodingForModel(encodingModel as any);
+    const tokens = encoder.encode(text);
+    return tokens.length;
+  } catch {
+    // Fallback: rough estimation (1 token ~ 4 characters)
+    return Math.ceil(text.length / 4);
+  }
+}
 
 type ProviderName = 'groq' | 'openai' | 'google';
 
@@ -186,6 +204,14 @@ export function ChatPanel() {
         return;
       }
 
+      // Calculate token usage for the conversation
+      // Count tokens in user messages (prompt) and assistant response (completion)
+      const userMessages = allMessages.filter(m => m.role === 'user');
+      const userContent = userMessages.map(m => extractAllTextParts(m)).join('\n');
+      const promptTokens = estimateTokens(userContent, modelId || 'gpt-4');
+      const completionTokens = estimateTokens(content, modelId || 'gpt-4');
+      const totalTokens = promptTokens + completionTokens;
+
       try {
         await apiRequest<Message>(
           `/chats/conversations/${convId}/messages`,
@@ -196,6 +222,9 @@ export function ChatPanel() {
               content,
               model: modelId,
               provider: 'groq',
+              prompt_tokens: promptTokens,
+              completion_tokens: completionTokens,
+              total_tokens: totalTokens,
             }),
           },
           token,

@@ -201,6 +201,9 @@ def add_message(
         content=data.content.strip(),
         model=data.model,
         provider=data.provider,
+        prompt_tokens=data.prompt_tokens,
+        completion_tokens=data.completion_tokens,
+        total_tokens=data.total_tokens,
     )
     session.add(message)
 

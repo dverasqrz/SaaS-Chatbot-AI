@@ -10,15 +10,16 @@
     "start": "next start"
   },
   "dependencies": {
-    "ai": "^5.0.161",
-    "@ai-sdk/react": "^2.0.163",
-    "@ai-sdk/openai": "^2.0.101",
     "@ai-sdk/google": "^2.0.63",
     "@ai-sdk/groq": "^2.0.36",
-    "zod": "^4.3.6",
+    "@ai-sdk/openai": "^2.0.101",
+    "@ai-sdk/react": "^2.0.163",
+    "ai": "^5.0.161",
+    "js-tiktoken": "^1.0.21",
     "next": "15.5.14",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

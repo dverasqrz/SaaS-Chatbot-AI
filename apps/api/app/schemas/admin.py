@@ -6,6 +6,12 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 
+class TokensByProvider(BaseModel):
+    groq: int = 0
+    openai: int = 0
+    google: int = 0
+
+
 class UserAdminResponse(BaseModel):
     id: str
     email: EmailStr
@@ -15,6 +21,7 @@ class UserAdminResponse(BaseModel):
     created_at: datetime
     last_login: Optional[datetime] = None
     tokens_used: int
+    tokens_by_provider: TokensByProvider
     is_online: bool
 
 
@@ -38,3 +45,4 @@ class AdminStatsResponse(BaseModel):
     total_users: int
     active_users: int
     total_tokens_used: int
+    tokens_by_provider: TokensByProvider

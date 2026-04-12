@@ -15,9 +15,29 @@ from app.schemas.admin import (
     UserCreateRequest,
     UserUpdateRequest,
     AdminStatsResponse,
+    TokensByProvider,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _get_tokens_by_provider(session: Session, user_id: Optional[str] = None) -> TokensByProvider:
+    """Calculate tokens used by provider for a specific user or all users."""
+    providers = ['groq', 'openai', 'google']
+    result = {}
+    
+    for provider in providers:
+        query = select(func.sum(Message.total_tokens)).where(
+            Message.provider == provider,
+            Message.total_tokens.is_not(None)
+        )
+        if user_id:
+            query = query.where(Message.user_id == user_id)
+        
+        tokens = session.exec(query).one()
+        result[provider] = int(tokens) if tokens else 0
+    
+    return TokensByProvider(**result)
 
 
 @router.get("/stats", response_model=AdminStatsResponse)
@@ -25,23 +45,29 @@ def get_admin_stats(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_admin_user),
 ):
-    """Estatísticas gerais para o dashboard admin."""
+    """Estatísticas gerais para o dashboard admin com tokens reais por provedor."""
     total_users = session.exec(select(func.count(User.id))).one()
     active_users = session.exec(
         select(func.count(User.id)).where(User.is_active == True)
     ).one()
     
-    # Total de tokens usados (soma de todos os caracteres das mensagens)
-    # Se não há mensagens, retorna 0
+    # Total de tokens usados (soma real do campo total_tokens)
     try:
-        total_tokens = session.exec(select(func.length(Message.content))).one()
+        total_tokens = session.exec(
+            select(func.sum(Message.total_tokens)).where(Message.total_tokens.is_not(None))
+        ).one()
+        total_tokens = int(total_tokens) if total_tokens else 0
     except:
         total_tokens = 0
+    
+    # Tokens por provedor
+    tokens_by_provider = _get_tokens_by_provider(session)
     
     return AdminStatsResponse(
         total_users=total_users,
         active_users=active_users,
         total_tokens_used=total_tokens,
+        tokens_by_provider=tokens_by_provider,
     )
 
 
@@ -50,18 +76,24 @@ def list_users(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_admin_user),
 ):
-    """Lista todos os usuários com informações administrativas."""
+    """Lista todos os usuários com informações administrativas e tokens por provedor."""
     users = session.exec(select(User).order_by(User.created_at.desc())).all()
     
     result = []
     for user in users:
-        # Contar tokens usados pelo usuário
+        # Contar tokens reais usados pelo usuário (soma do campo total_tokens)
         try:
             user_tokens = session.exec(
-                select(func.length(Message.content)).where(Message.user_id == user.id)
+                select(func.sum(Message.total_tokens))
+                .where(Message.user_id == user.id)
+                .where(Message.total_tokens.is_not(None))
             ).one()
+            user_tokens = int(user_tokens) if user_tokens else 0
         except:
             user_tokens = 0
+        
+        # Tokens por provedor para este usuário
+        tokens_by_provider = _get_tokens_by_provider(session, user.id)
         
         # Verificar se usuário está "online" (mensagem recente)
         recent_message = session.exec(
@@ -75,7 +107,11 @@ def list_users(
         if recent_message:
             # Garante que ambos os datetimes tenham timezone para comparação
             now_utc = datetime.now(timezone.utc)
-            time_diff = now_utc - recent_message.created_at
+            msg_time = recent_message.created_at
+            # Se o datetime do banco não tiver timezone, assume UTC
+            if msg_time.tzinfo is None:
+                msg_time = msg_time.replace(tzinfo=timezone.utc)
+            time_diff = now_utc - msg_time
             is_online = time_diff.total_seconds() <= 300  # 5 minutos
         
         result.append(UserAdminResponse(
@@ -87,6 +123,7 @@ def list_users(
             created_at=user.created_at,
             last_login=user.last_login,
             tokens_used=user_tokens,
+            tokens_by_provider=tokens_by_provider,
             is_online=is_online,
         ))
     
@@ -132,6 +169,7 @@ def create_user(
         created_at=user.created_at,
         last_login=user.last_login,
         tokens_used=0,
+        tokens_by_provider=TokensByProvider(groq=0, openai=0, google=0),
         is_online=False,
     )
 
@@ -195,13 +233,19 @@ def update_user(
     session.commit()
     session.refresh(user)
     
-    # Recalcular tokens
+    # Recalcular tokens reais
     try:
         user_tokens = session.exec(
-            select(func.length(Message.content)).where(Message.user_id == user.id)
+            select(func.sum(Message.total_tokens))
+            .where(Message.user_id == user.id)
+            .where(Message.total_tokens.is_not(None))
         ).one()
+        user_tokens = int(user_tokens) if user_tokens else 0
     except:
         user_tokens = 0
+    
+    # Tokens por provedor
+    tokens_by_provider = _get_tokens_by_provider(session, user.id)
     
     return UserAdminResponse(
         id=user.id,
@@ -212,6 +256,7 @@ def update_user(
         created_at=user.created_at,
         last_login=user.last_login,
         tokens_used=user_tokens,
+        tokens_by_provider=tokens_by_provider,
         is_online=False,
     )
 

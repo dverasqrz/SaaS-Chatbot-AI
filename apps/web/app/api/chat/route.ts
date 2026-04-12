@@ -2,6 +2,7 @@ import {
   convertToModelMessages,
   streamText,
   type UIMessage,
+  type LanguageModelUsage,
 } from 'ai';
 import {
   getLanguageModel,
@@ -54,11 +55,22 @@ export async function POST(request: Request) {
       maxRetries: 2,
     });
 
+    // Capture usage data to include in response headers
+    let usageData: LanguageModelUsage | null = null;
+
     return result.toUIMessageStreamResponse({
       originalMessages: body.messages,
       headers: {
         'X-LLM-Provider': providerConfig.provider,
         'X-LLM-Model': providerConfig.model ?? '',
+      },
+      onFinish: async ({ messages }) => {
+        // Capture usage data from the stream result
+        try {
+          usageData = await result.usage;
+        } catch (e) {
+          console.error('[api/chat] Failed to get usage:', e);
+        }
       },
       onError: () =>
         'A conexão com o modelo falhou (rede ou tempo esgotado). Experimente outro modelo em «Modelos…» ou tente novamente em instantes.',

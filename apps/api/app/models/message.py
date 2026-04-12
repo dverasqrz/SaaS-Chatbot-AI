@@ -15,4 +15,8 @@ class Message(SQLModel, table=True):
     content: str = Field(nullable=False)
     model: Optional[str] = Field(default=None, max_length=120)
     provider: Optional[str] = Field(default=None, max_length=40)
+    # Token usage fields for accurate tracking by provider
+    prompt_tokens: Optional[int] = Field(default=None)
+    completion_tokens: Optional[int] = Field(default=None)
+    total_tokens: Optional[int] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
