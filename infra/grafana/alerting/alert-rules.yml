@@ -1,0 +1,192 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: SaaS Chatbot Alerts
+    folder: SaaS Chatbot AI
+    interval: 60s
+    rules:
+      # Alerta 1: Taxa de erro alta na API
+      - uid: high-error-rate
+        title: Taxa de Erro API Alta
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: Prometheus
+            model:
+              expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [10]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+              expression: A
+              refId: B
+              type: threshold
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Taxa de erro da API acima de 10%"
+          description: "A taxa de erro HTTP 5xx está em {{$values.B}}% nos últimos 5 minutos"
+        labels:
+          severity: critical
+          team: devops
+
+      # Alerta 2: Latência LLM alta
+      - uid: high-llm-latency
+        title: Latencia LLM Alta
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: Prometheus
+            model:
+              expr: histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (le))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [5]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+              expression: A
+              refId: B
+              type: threshold
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "Latencia do LLM acima de 5 segundos"
+          description: "A latencia P95 das chamadas LLM está em {{$values.B}}s"
+        labels:
+          severity: warning
+          team: backend
+
+      # Alerta 3: Taxa de fallback alta
+      - uid: high-fallback-rate
+        title: Taxa de Fallback Alta
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: Prometheus
+            model:
+              expr: rate(llm_fallback_total[5m]) / rate(llm_requests_total[5m]) * 100
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [20]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+              expression: A
+              refId: B
+              type: threshold
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Taxa de fallback acima de 20%"
+          description: "{{$values.B}}% das requisicoes estao caindo em fallback"
+        labels:
+          severity: warning
+          team: backend
+
+      # Alerta 4: Conexões PostgreSQL altas
+      - uid: high-db-connections
+        title: Conexoes PostgreSQL Altas
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: Prometheus
+            model:
+              expr: pg_stat_activity_count / pg_settings_setting{setting_name="max_connections"} * 100
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+              expression: A
+              refId: B
+              type: threshold
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Uso de conexoes PostgreSQL acima de 80%"
+          description: "{{$values.B}}% das conexoes do PostgreSQL estao em uso"
+        labels:
+          severity: critical
+          team: devops
+
+      # Alerta 5: Memória Redis alta
+      - uid: high-redis-memory
+        title: Memoria Redis Alta
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: Prometheus
+            model:
+              expr: redis_memory_used_bytes / redis_memory_max_bytes * 100
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [80]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+              expression: A
+              refId: B
+              type: threshold
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Memoria Redis acima de 80%"
+          description: "{{$values.B}}% da memoria do Redis está em uso"
+        labels:
+          severity: warning
+          team: devops

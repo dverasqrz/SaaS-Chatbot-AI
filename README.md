@@ -22,6 +22,7 @@ Uma plataforma moderna de chatbot IA com arquitetura SaaS, construída com as me
 - **Docker & Docker Compose** - Containerização consistente
 - **Nginx** - Proxy reverso e load balancing
 - **Ambientes isolados** - Desenvolvimento e produção
+- **Prometheus + Grafana + Loki + Promtail** - Monitoramento e observabilidade completa
 
 ## 🎯 Funcionalidades
 
@@ -65,12 +66,14 @@ cp .env.example .env
 ### 2. Desenvolvimento Local
 ```bash
 # Suba todos os serviços
-docker compose up --build
+docker compose -f docker-compose.prod.yml up -d --build
 
 # Acesse os serviços
 # Frontend: http://localhost:3000/register
 # API Docs: http://localhost:8000/docs
 # Health Check: http://localhost:8000/health
+# Grafana: http://localhost/grafana/ (admin/admin)
+# Prometheus: http://localhost/prometheus/
 ```
 
 ### 3. Fluxo de Teste
@@ -115,32 +118,78 @@ O sistema inclui um painel completo para administradores:
 ## 🏗️ Arquitetura
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │      API        │    │   Database      │
-│   (Next.js)     │◄──►│   (FastAPI)     │◄──►│  (PostgreSQL)   │
-│                 │    │                 │    │                 │
-│ - UI/UX         │    │ - Business      │    │ - Conversations │
-│ - State Mgmt    │    │   Logic         │    │ - Messages      │
-│ - AI SDK        │    │ - Validation    │    │ - Users         │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │     Redis       │
-                    │   (Cache)       │
-                    │                 │
-                    │ - Sessions      │
-                    │ - Rate Limiting │
-                    └─────────────────┘
+graph TD
+    User --- Nginx
+    Nginx -- "/api/v1" --> API
+    Nginx -- "/" --> WebApp
+    Nginx -- "/grafana" --> Grafana
+    API -- Metrics --> Prometheus
+    API -- Logs --> Promtail
+    Promtail -- Logs --> Loki
+    Prometheus -- Metrics --> Grafana
+    Loki -- Logs --> Grafana
+    API -- Reads/Writes --> PostgreSQL
+    WebApp -- API Calls --> API
 ```
+
+A arquitetura do sistema é modular e conteinerizada, facilitando o desenvolvimento, a implantação e o escalonamento. Os principais componentes são:
+
+*   **Frontend (Next.js)**: Interface do usuário.
+*   **Backend (FastAPI)**: API RESTful com lógica de negócios, agora organizada em uma **camada de serviços** (`AuthService`, `ChatService`, `WorkspaceService`, `AdminService`) para baixo acoplamento.
+*   **Banco de Dados (PostgreSQL)**: Persistência de dados.
+*   **Redis**: Cache e gerenciamento de sessões.
+*   **Nginx**: Reverse proxy e balanceador de carga.
+*   **Monitoramento (Prometheus, Grafana, Loki, Promtail)**: Observabilidade completa do sistema. O **Promtail** é responsável por coletar logs de todos os contêineres e enviá-los para o Loki, garantindo robustez e desacoplamento.
+
+## 📊 Monitoramento & Observabilidade
+
+O projeto inclui um stack completo de monitoramento com **Prometheus + Grafana + Loki**.
+
+### 🔗 URLs de Acesso
+
+| Serviço | URL | Login Padrão |
+|---------|-----|--------------|
+| **Grafana** | http://localhost/grafana/ | admin / admin |
+| **Prometheus** | http://localhost/prometheus/ | - |
+| **App** | http://localhost | - |
+
+### 📈 Métricas Coletadas
+
+#### Métricas de Negócio (LLM)
+- `llm_requests_total` - Total de chamadas por provedor/modelo
+- `llm_tokens_total` - Tokens consumidos (prompt/completion/total)
+- `llm_request_duration_seconds` - Latência das chamadas
+- `llm_fallback_total` - Taxa de fallback entre provedores
+- `llm_cost_usd` - Custo estimado das chamadas
+
+#### Métricas de API
+- `http_requests_total` - Requisições HTTP por endpoint
+- `http_request_duration_seconds` - Latência da API
+- `errors_total` - Erros por tipo
+- `active_users` - Usuários ativos no momento
+
+#### Métricas de Infraestrutura
+- PostgreSQL: conexões, queries lentas, cache hits
+- Redis: operações/sec, memory usage, hit ratio
+
+### 🚨 Alertas (configuráveis)
+
+O Grafana suporta alertas para:
+- Taxa de erro > 10%
+- Latência LLM > 5s
+- Uso excessivo de tokens
+- Queda de serviços
+
+### 📚 Documentação Detalhada
+
+Para mais detalhes sobre a configuração e uso do stack de monitoramento, consulte o arquivo `ARCHITECTURE.md`.
 
 ## 🚀 Deploy em Produção
 
 ### Configuração de Produção
 ```bash
 # Configure para produção
-cp .env.prod.example .env
+cp .env.example .env
 # Ajuste variáveis de ambiente
 
 # Suba em modo produção
@@ -151,15 +200,13 @@ docker compose -f docker-compose.prod.yml up --build -d
 - **Aplicação**: `http://localhost`
 - **API Documentation**: `http://localhost/api/docs`
 - **Health Check**: `http://localhost/api/health`
+- **Grafana**: `http://localhost/grafana/` (admin/admin)
+- **Prometheus**: `http://localhost/prometheus/`
 
 ### Considerações de Produção
 - **Segurança**: Nginx como proxy reverso (porta 80 apenas)
 - **Isolamento**: Serviços em rede interna Docker
-- **Próximos Passos**:
-  - Configurar HTTPS (Cloudflare/Let's Encrypt)
-  - Implementar backups automáticos do PostgreSQL
-  - Configurar migrações com Alembic
-  - Monitoramento e logging centralizado
+- **Monitoramento**: Prometheus + Grafana + Loki habilitados por padrão
 
 ## 📝 Variáveis de Ambiente
 
@@ -174,6 +221,10 @@ docker compose -f docker-compose.prod.yml up --build -d
 - `CORS_ORIGINS` - Origens permitidas para CORS
 - `SECRET_KEY` - Chave secreta para JWT
 
+### Monitoramento
+- `GRAFANA_ADMIN_USER` - Usuário admin do Grafana (padrão: admin)
+- `GRAFANA_ADMIN_PASSWORD` - Senha do Grafana (padrão: admin)
+
 ## 🔧 Desenvolvimento
 
 ### Estrutura de Diretórios
@@ -181,12 +232,18 @@ docker compose -f docker-compose.prod.yml up --build -d
 apps/
 ├── web/                 # Frontend Next.js
 │   ├── app/            # App Router pages
-│   ├── components/     # Reusable components
+│   │   ├── (auth)/     # Rotas de autenticação
+│   │   ├── (dashboard)/ # Rotas do dashboard
+│   │   └── api/        # Rotas de API do Next.js
+│   ├── components/     # Componentes React reutilizáveis
 │   └── lib/           # Utilities e types
 └── api/                # Backend FastAPI
     ├── app/           # Application code
-    │   ├── api/       # API routes
+    │   ├── api/       # API routes (v1)
+    │   ├── core/      # Core modules (config, db, security, metrics, setup)
     │   ├── models/    # Database models
+    │   ├── schemas/   # Pydantic schemas
+    │   ├── services/  # Camada de serviços (AuthService, ChatService, etc.)
     │   └── utils/     # Business logic
     └── tests/         # Test suite
 ```
@@ -220,6 +277,10 @@ Este projeto está licenciado sob a MIT License - veja o arquivo [LICENSE](LICEN
 - 📧 Email: support@seuprojeto.com
 - 📖 Documentation: `/docs`
 - 🐛 Issues: GitHub Issues
+
+## 📜 CHANGELOG
+
+Para um histórico detalhado de todas as alterações e refatorações, consulte o arquivo [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 

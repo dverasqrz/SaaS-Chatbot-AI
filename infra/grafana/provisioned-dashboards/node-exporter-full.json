@@ -1,0 +1,109 @@
+{
+  "uid": "node-exporter-full",
+  "title": "Node Exporter Full",
+  "tags": ["node-exporter", "hardware", "system"],
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "graph",
+      "title": "CPU Usage",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+          "refId": "A",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 2,
+      "type": "graph",
+      "title": "Memory Usage",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "100 - ((node_memory_MemAvailable_bytes * 100) / node_memory_MemTotal_bytes)",
+          "refId": "A",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 3,
+      "type": "graph",
+      "title": "Disk I/O (Read)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "rate(node_disk_bytes_read_total[5m])",
+          "refId": "A",
+          "legendFormat": "{{instance}} - Read"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 4,
+      "type": "graph",
+      "title": "Disk I/O (Write)",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "rate(node_disk_bytes_written_total[5m])",
+          "refId": "A",
+          "legendFormat": "{{instance}} - Write"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 5,
+      "type": "graph",
+      "title": "Network Traffic (Receive)",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "rate(node_network_receive_bytes_total[5m])",
+          "refId": "A",
+          "legendFormat": "{{instance}} - {{device}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 6,
+      "type": "graph",
+      "title": "Network Traffic (Transmit)",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "rate(node_network_transmit_bytes_total[5m])",
+          "refId": "A",
+          "legendFormat": "{{instance}} - {{device}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 7,
+      "type": "graph",
+      "title": "Filesystem Usage",
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 6 },
+      "targets": [
+        {
+          "expr": "100 - (node_filesystem_avail_bytes{fstype=~\"ext4|xfs\"} * 100) / node_filesystem_size_bytes{fstype=~\"ext4|xfs\"}",
+          "refId": "A",
+          "legendFormat": "{{instance}} - {{mountpoint}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    }
+  ]
+}

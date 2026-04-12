@@ -1,0 +1,95 @@
+{
+  "uid": "cadvisor-full",
+  "title": "cAdvisor Full",
+  "tags": ["cadvisor", "containers", "system"],
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "graph",
+      "title": "Container CPU Usage",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{image!=''}[5m])) by (name)",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 2,
+      "type": "graph",
+      "title": "Container Memory Usage",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes{image!=''}) by (name)",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 3,
+      "type": "graph",
+      "title": "Container Network Receive",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_network_receive_bytes_total{image!=''}[5m])) by (name)",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 4,
+      "type": "graph",
+      "title": "Container Network Transmit",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_network_transmit_bytes_total{image!=''}[5m])) by (name)",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 5,
+      "type": "graph",
+      "title": "Container Filesystem Read",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_fs_reads_bytes_total{image!=''}[5m])) by (name)",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 6,
+      "type": "graph",
+      "title": "Container Filesystem Write",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_fs_writes_bytes_total{image!=''}[5m])) by (name)",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    }
+  ]
+}

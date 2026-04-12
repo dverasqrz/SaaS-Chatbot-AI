@@ -1,0 +1,86 @@
+{
+  "uid": "node-exporter-cadvisor-overview",
+  "title": "Node Exporter & cAdvisor Overview",
+  "tags": ["node-exporter", "cadvisor", "overview"],
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "graph",
+      "title": "CPU Usage (Node Exporter)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+          "refId": "A",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 2,
+      "type": "graph",
+      "title": "Memory Usage (Node Exporter)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "100 - ((node_memory_MemAvailable_bytes * 100) / node_memory_MemTotal_bytes)",
+          "refId": "A",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 3,
+      "type": "graph",
+      "title": "Disk I/O (Node Exporter)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(node_disk_bytes_read_total[5m])",
+          "refId": "A",
+          "legendFormat": "{{instance}} - Read"
+        },
+        {
+          "expr": "rate(node_disk_bytes_written_total[5m])",
+          "refId": "B",
+          "legendFormat": "{{instance}} - Write"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 4,
+      "type": "graph",
+      "title": "Container CPU Usage (cAdvisor)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{image!=''}[5m])) by (name)",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 5,
+      "type": "graph",
+      "title": "Container Memory Usage (cAdvisor)",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes{image!=''}) by (name)",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "datasource": "Prometheus"
+    }
+  ]
+}
